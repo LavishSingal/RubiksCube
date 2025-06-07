@@ -127,7 +127,7 @@ const Cube = ({ controlsRef }) => {
         const quat = new THREE.Quaternion();
         quat.setFromAxisAngle(
           faceNormal[new_dir],
-          (Math.PI / 2) * direction * rotationRef.current[face][0] * invert
+          (Math.PI / 2) * direction * rotationRef.current[face][0] 
         );
 
         console.log('quat', quat);
@@ -165,8 +165,8 @@ const Cube = ({ controlsRef }) => {
           console.log("Rotating Z face");
           let origX = rotationRef.current.x[0];
           let origY = rotationRef.current.y[0];
-          rotationRef.current.x[0] = origY;
-          rotationRef.current.y[0] = -origX;
+          rotationRef.current.x[0] = -origY * direction;
+          rotationRef.current.y[0] = origX * direction;
 
           origX = rotationRef.current.x[1];
           origY = rotationRef.current.y[1];
