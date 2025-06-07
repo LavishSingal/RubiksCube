@@ -2,7 +2,7 @@ import { Canvas, useThree } from "@react-three/fiber"
 import { Box, Edges, TrackballControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useRef, useState } from "react";
-import Cube from "./components/cube";
+import Cube from "./components/Cube";
 
 const cubic_posiitons = []
 const App = () => {
