@@ -92,6 +92,99 @@ const Cube = ({ controlsRef }) => {
     });
   };
 
+  const rotateFaceQuat = (face, faceSign, direction) => {
+    Object.values(cubletRefs.current).forEach(({ ref, rotationRef }) => {
+      if (!ref.current) return;
+
+      const currentPos = new THREE.Vector3();
+      ref.current.getWorldPosition(currentPos);
+      const faceRotated = Math.round(currentPos[face]);
+
+      currentPos.x = Math.round(currentPos.x * 1000) / 1000; // Ensure precision
+      currentPos.y = Math.round(currentPos.y * 1000) / 1000;
+      currentPos.z = Math.round(currentPos.z * 1000) / 1000;
+
+      if (faceRotated === faceSign) {
+        console.log(currentPos);
+
+        const mesh = ref.current;
+
+        mesh.position.applyAxisAngle(
+          faceNormal[face],
+          (Math.PI / 2) * direction
+        );
+
+        console.log({
+          x: [...rotationRef.current.x],
+          y: [...rotationRef.current.y],
+          z: [...rotationRef.current.z],
+        });
+        const new_dir = rotationRef.current[face][1];
+        const invert =
+          face === "x" || face === "z" ? rotationRef.current[face][0] : 1;
+        console.log(face, new_dir);
+        console.log(mesh.rotation);
+        const quat = new THREE.Quaternion();
+        quat.setFromAxisAngle(
+          faceNormal[new_dir],
+          (Math.PI / 2) * direction * rotationRef.current[face][0] * invert
+        );
+
+        console.log('quat', quat);
+
+        mesh.quaternion.multiply(quat);
+        mesh.quaternion.normalize(); // Normalize the quaternion to avoid drift
+        // mesh.rotation[new_dir] +=
+        //   (Math.PI / 2) * direction * rotationRef.current[face][0] * invert;
+        console.log(mesh.rotation);
+        console.log("face", face)
+        if (face === "x") {
+          console.log("Rotating X face");
+          let origY = rotationRef.current.y[0];
+          let origZ = rotationRef.current.z[0];
+          rotationRef.current.y[0] = -origZ * direction;
+          rotationRef.current.z[0] = origY * direction;
+
+          origY = rotationRef.current.y[1];
+          origZ = rotationRef.current.z[1];
+          rotationRef.current.y[1] = origZ;
+          rotationRef.current.z[1] = origY;
+        } else if (face === "y") {
+          console.log("Rotating Y face");
+          let origX = rotationRef.current.x[0];
+          let origZ = rotationRef.current.z[0];
+          rotationRef.current.x[0] = origZ * direction;
+          rotationRef.current.z[0] = -origX * direction;
+
+          origX = rotationRef.current.x[1];
+          origZ = rotationRef.current.z[1];
+          rotationRef.current.x[1] = origZ;
+          rotationRef.current.z[1] = origX;
+
+        } else if (face === "z") {
+          console.log("Rotating Z face");
+          let origX = rotationRef.current.x[0];
+          let origY = rotationRef.current.y[0];
+          rotationRef.current.x[0] = origY;
+          rotationRef.current.y[0] = -origX;
+
+          origX = rotationRef.current.x[1];
+          origY = rotationRef.current.y[1];
+          rotationRef.current.x[1] = origY;
+          rotationRef.current.y[1] = origX;
+        }
+        console.log(rotationRef.current);
+        while (Math.abs(mesh.rotation[new_dir]) > Math.PI) {
+          mesh.rotation[new_dir] -=
+            Math.PI * 2 * Math.sign(mesh.rotation[new_dir]);
+        }
+        const currentPos1 = new THREE.Vector3();
+        mesh.getWorldPosition(currentPos1);
+        console.log("New position after rotation:", currentPos1);
+      }
+    });
+  };
+
   const rotateXPositiveFace = () => {
     Object.values(cubletRefs.current).forEach(({ ref, rotationRef }) => {
       if (!ref.current) return;
@@ -227,19 +320,19 @@ const Cube = ({ controlsRef }) => {
       let sign =
         mouseInt.current[0] > 0.5 ? 1 : mouseInt.current[0] < -0.5 ? -1 : 0;
       // console.log("Rotating +X face");
-      rotateFace("x", sign, -direction);
+      rotateFaceQuat("x", sign, -direction);
       // console.log("x", sign, -direction);
     } else if (rotateface === "y") {
       let sign =
         mouseInt.current[1] > 0.5 ? 1 : mouseInt.current[1] < -0.5 ? -1 : 0;
       // console.log("Rotating +Y face");
-      rotateFace("y", sign, direction);
+      rotateFaceQuat("y", sign, direction);
       // console.log("y", sign, direction);
     } else if (rotateface === "z") {
       let sign =
         mouseInt.current[2] > 0.5 ? 1 : mouseInt.current[2] < -0.5 ? -1 : 0;
       // console.log("Rotating +Z face");
-      rotateFace("z", sign, direction);
+      rotateFaceQuat("z", sign, direction);
       // console.log("z", sign, direction);
     }
 
