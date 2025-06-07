@@ -40,18 +40,18 @@ const Cublet = ({ position, controlsRef, pointerRef, refCallback }) => {
       onPointerUp={handlePointerUp}
       onPointerOut={handlePointerOut}
     >
-      {/* <meshBasicMaterial attach="material-0" color={(position[0] === 1) ? 'red' : 'black'} />
+      <meshBasicMaterial attach="material-0" color={(position[0] === 1) ? 'red' : 'black'} />
       <meshBasicMaterial attach="material-1" color={(position[0] === -1) ? 'orange' : 'black'} />
       <meshBasicMaterial attach="material-2" color={(position[1] === 1) ? 'white' : 'black'} />
       <meshBasicMaterial attach="material-3" color={(position[1] === -1) ? 'yellow' : 'black'} />
       <meshBasicMaterial attach="material-4" color={(position[2] === 1) ? 'green' : 'black'} />
-      <meshBasicMaterial attach="material-5" color={(position[2] === -1) ? 'blue' : 'black'} /> */}
-      <meshBasicMaterial attach="material-0" color={(true) ? 'red' : 'black'} />
+      <meshBasicMaterial attach="material-5" color={(position[2] === -1) ? 'blue' : 'black'} />
+      {/* <meshBasicMaterial attach="material-0" color={(true) ? 'red' : 'black'} />
       <meshBasicMaterial attach="material-1" color={(true) ? 'orange' : 'black'} />
       <meshBasicMaterial attach="material-2" color={(true) ? 'white' : 'black'} />
       <meshBasicMaterial attach="material-3" color={(true) ? 'yellow' : 'black'} />
       <meshBasicMaterial attach="material-4" color={(true) ? 'green' : 'black'} />
-      <meshBasicMaterial attach="material-5" color={(true) ? 'blue' : 'black'} />
+      <meshBasicMaterial attach="material-5" color={(true) ? 'blue' : 'black'} /> */}
       <Edges threshold={10} lineWidth={4} scale={1.01} color="black" />
     </Box>
   );
