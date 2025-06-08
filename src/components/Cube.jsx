@@ -1,7 +1,7 @@
 import { Canvas, useThree } from "@react-three/fiber";
 import { Box, Edges, TrackballControls } from "@react-three/drei";
 import * as THREE from "three";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 
 import Cublet from "./Cublet";
 import { max } from "three/tsl";
@@ -120,8 +120,6 @@ const Cube = ({ controlsRef }) => {
           z: [...rotationRef.current.z],
         });
         const new_dir = rotationRef.current[face][1];
-        const invert =
-          face === "x" || face === "z" ? rotationRef.current[face][0] : 1;
         console.log(face, new_dir);
         console.log(mesh.rotation);
         const quat = new THREE.Quaternion();
