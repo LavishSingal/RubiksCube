@@ -40,12 +40,12 @@ const Cublet = ({ position, controlsRef, pointerRef, refCallback }) => {
       onPointerUp={handlePointerUp}
       onPointerOut={handlePointerOut}
     >
-      <meshBasicMaterial attach="material-0" color={(position[0] === 1) ? 'red' : 'black'} />
-      <meshBasicMaterial attach="material-1" color={(position[0] === -1) ? 'orange' : 'black'} />
-      <meshBasicMaterial attach="material-2" color={(position[1] === 1) ? 'white' : 'black'} />
-      <meshBasicMaterial attach="material-3" color={(position[1] === -1) ? 'yellow' : 'black'} />
-      <meshBasicMaterial attach="material-4" color={(position[2] === 1) ? 'green' : 'black'} />
-      <meshBasicMaterial attach="material-5" color={(position[2] === -1) ? 'blue' : 'black'} />
+      <meshBasicMaterial attach="material-0" color={(position[0] === 1) ? '#B71234' : 'black'} />
+      <meshBasicMaterial attach="material-1" color={(position[0] === -1) ? '#FF5800' : 'black'} />
+      <meshBasicMaterial attach="material-2" color={(position[1] === 1) ? '#FFFFFF' : 'black'} />
+      <meshBasicMaterial attach="material-3" color={(position[1] === -1) ? '#FFD500' : 'black'} />
+      <meshBasicMaterial attach="material-4" color={(position[2] === 1) ? '#009B48' : 'black'} />
+      <meshBasicMaterial attach="material-5" color={(position[2] === -1) ? '#0046AD' : 'black'} />
       {/* <meshBasicMaterial attach="material-0" color={(true) ? 'red' : 'black'} />
       <meshBasicMaterial attach="material-1" color={(true) ? 'orange' : 'black'} />
       <meshBasicMaterial attach="material-2" color={(true) ? 'white' : 'black'} />

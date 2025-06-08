@@ -11,6 +11,7 @@ const Cube = ({ controlsRef }) => {
   const cubletRefs = useRef({});
   const midAnim = useRef(false);
   const midAnimHelper = useRef({});
+  const faces = ['x', 'y', 'z'];
 
   const faceNormal = {
     x: new THREE.Vector3(1, 0, 0),
@@ -36,26 +37,26 @@ const Cube = ({ controlsRef }) => {
         const quat = new THREE.Quaternion();
         const mesh = ref.current;
 
-        // const targetPos = mesh.position
-        //   .clone()
-        //   .applyAxisAngle(faceNormal[face], (Math.PI / 2) * direction * amount);
+        const targetPos = mesh.position
+          .clone()
+          // .applyAxisAngle(faceNormal[face], (Math.PI / 2) * direction * amount);
 
-        mesh.position.applyAxisAngle(
-          faceNormal[face],
-          (Math.PI / 2) * direction * amount
-        );
+        // mesh.position.applyAxisAngle(
+        //   faceNormal[face],
+        //   (Math.PI / 2) * direction * amount
+        // );
 
         quat.setFromAxisAngle(
           faceNormal[new_dir],
           (Math.PI / 2) * direction * rotationRef.current[face][0] * amount
         );
-        // const targetQuat = new THREE.Quaternion();
-        // const currentQuat = mesh.quaternion.clone();
-        // targetQuat.multiplyQuaternions(currentQuat, quat);
-        // targetQuat.normalize();
+        const targetQuat = new THREE.Quaternion();
+        const currentQuat = mesh.quaternion.clone();
+        targetQuat.multiplyQuaternions(currentQuat, quat);
+        targetQuat.normalize();
 
-        mesh.quaternion.multiply(quat);
-        mesh.quaternion.normalize(); // Normalize the quaternion to avoid drift
+        // mesh.quaternion.multiply(quat);
+        // mesh.quaternion.normalize(); // Normalize the quaternion to avoid drift
 
         // gsap.to(mesh.position, {
         //   duration: 5,
@@ -64,18 +65,49 @@ const Cube = ({ controlsRef }) => {
         //   z: targetPos.z,
         //   ease: "none",
         // });
+        // const center = faceNormal[face].clone().multiplyScalar(faceSign);
+        const axisIndex = ["x", "y", "z"].indexOf(face);
+        gsap.to({ angle: 0}, {
+          angle: (Math.PI / 2) * direction * amount,
+          duration: 0.5,
+          ease: "none",
+          onUpdate: function (){
+            const theta = this.targets()[0].angle;
+            // mesh.position.x = center.x + radius * Math.sin(theta);
+            mesh.position[faces[(axisIndex + 1)%3]] = (targetPos[faces[(axisIndex + 1)%3]] * Math.cos(theta)) - (targetPos[faces[(axisIndex + 2)%3]] * Math.sin(theta));
+            mesh.position[faces[(axisIndex + 2)%3]] = (targetPos[faces[(axisIndex + 1)%3]] * Math.sin(theta)) + (targetPos[faces[(axisIndex + 2)%3]] * Math.cos(theta));
+            // mesh.position.z = center.z + radius * Math.cos(theta);
+            mesh.position[faces[axisIndex]] = faceSign; // Keep Y constant or animate for a spiral
+          }
+        })
 
         // const targetEuler = new THREE.Euler().setFromQuaternion(
         //   targetQuat,
         //   mesh.rotation.order
-        // ); // use current order ('XYZ')
+        // );
+         // use current order ('XYZ')
+        // console.log("targetEuler:", targetEuler);
         // gsap.to(mesh.rotation, {
-        //   duration: 5,
+        //   duration: 1,
         //   x: targetEuler.x,
         //   y: targetEuler.y,
         //   z: targetEuler.z,
         //   ease: "none",
         // });
+
+        const fromQuat = mesh.quaternion.clone();
+const toQuat = targetQuat.clone();
+
+gsap.to({ t: 0 }, {
+  duration: 0.5,
+  t: 1,
+  ease: "none",
+  onUpdate() {
+    mesh.quaternion.copy(fromQuat).slerp(toQuat, this.targets()[0].t);
+  },
+});
+
+
 
         if (face === "x") {
           let origY = rotationRef.current.y[0];
@@ -141,17 +173,26 @@ const Cube = ({ controlsRef }) => {
       if (mouseInt.current[0] === -1.5){
         minus_face.current = -1;
       }
+      else {
+        minus_face.current = 1;
+      }
       // console.log("Face detected: X-axis");
     } else if (Math.abs(mouseInt.current[1]) === 1.5) {
       face.current = "y";
       if (mouseInt.current[1] === -1.5){
         minus_face.current = -1;
       }
+      else {
+        minus_face.current = 1;
+      }
       // console.log("Face detected: Y-axis");
     } else if (Math.abs(mouseInt.current[2]) === 1.5) {
       face.current = "z";
       if (mouseInt.current[2] === -1.5){
         minus_face.current = -1;
+      }
+      else {
+        minus_face.current = 1;
       }
       // console.log("Face detected: Z-axis");
     }
@@ -178,7 +219,7 @@ const Cube = ({ controlsRef }) => {
     );
     let maxValue = deltas[maxAxis];
     let direction = 0;
-    if (maxAxis !== face.current && Math.abs(maxValue) > 0.5) {
+    if (maxAxis !== face.current && Math.abs(maxValue) > 0.3) {
       direction = maxValue === 0 ? 0 : maxValue > 0 ? 1 : -1;
 
       rotateface = ["x", "y", "z"].find(
