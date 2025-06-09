@@ -14,7 +14,7 @@ const App = () => {
         <ambientLight intensity={0.5} />
         <pointLight position={[10, 10, 10]} />
         <Cube controlsRef={controlsRef} />
-        <TrackballControls ref={controlsRef} noZoom noPan/>\
+        <TrackballControls ref={controlsRef} noZoom noPan rotateSpeed={3} />
       </Canvas>
     </div>
   )

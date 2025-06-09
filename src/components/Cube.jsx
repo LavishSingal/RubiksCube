@@ -1,7 +1,7 @@
 import { Canvas, useThree } from "@react-three/fiber";
 import { Box, Edges, TrackballControls } from "@react-three/drei";
 import * as THREE from "three";
-import { use, useRef } from "react";
+import { useRef, useEffect } from "react";
 
 import Cublet from "./Cublet";
 import { max } from "three/tsl";
@@ -11,13 +11,41 @@ const Cube = ({ controlsRef }) => {
   const cubletRefs = useRef({});
   const midAnim = useRef(false);
   const midAnimHelper = useRef({});
-  const faces = ['x', 'y', 'z'];
+  const faces = ["x", "y", "z"];
+  const mousePressRef = useRef(false);
+  const pointerRef = useRef(false);
+  const pointerDownRef = useRef(false);
+  const mouseInt = useRef(null);
+  const face = useRef(null);
+  const minus_face = useRef(1);
+  const cubelets = [];
 
   const faceNormal = {
     x: new THREE.Vector3(1, 0, 0),
     y: new THREE.Vector3(0, 1, 0),
     z: new THREE.Vector3(0, 0, 1),
   };
+
+  useEffect(() => {
+    const handlePointerUpGlobal = (event) => {
+      if (mousePressRef.current) {
+        // You only get here if the user pressed on the cube and released somewhere
+        if (!pointerDownRef.current) {
+          console.log("❌ Released pointer OUTSIDE the cube");
+        } else {
+          console.log("✅ Released pointer INSIDE the cube");
+        }
+        mousePressRef.current = false;
+        face.current = null;
+      }
+    };
+
+    window.addEventListener("pointerup", handlePointerUpGlobal);
+
+    return () => {
+      window.removeEventListener("pointerup", handlePointerUpGlobal);
+    };
+  }, []);
 
   const registerCublet = (position, ref, rotationRef) => {
     const key = position.join(",");
@@ -37,14 +65,7 @@ const Cube = ({ controlsRef }) => {
         const quat = new THREE.Quaternion();
         const mesh = ref.current;
 
-        const targetPos = mesh.position
-          .clone()
-          // .applyAxisAngle(faceNormal[face], (Math.PI / 2) * direction * amount);
-
-        // mesh.position.applyAxisAngle(
-        //   faceNormal[face],
-        //   (Math.PI / 2) * direction * amount
-        // );
+        const targetPos = mesh.position.clone();
 
         quat.setFromAxisAngle(
           faceNormal[new_dir],
@@ -55,59 +76,42 @@ const Cube = ({ controlsRef }) => {
         targetQuat.multiplyQuaternions(currentQuat, quat);
         targetQuat.normalize();
 
-        // mesh.quaternion.multiply(quat);
-        // mesh.quaternion.normalize(); // Normalize the quaternion to avoid drift
-
-        // gsap.to(mesh.position, {
-        //   duration: 5,
-        //   x: targetPos.x,
-        //   y: targetPos.y,
-        //   z: targetPos.z,
-        //   ease: "none",
-        // });
-        // const center = faceNormal[face].clone().multiplyScalar(faceSign);
         const axisIndex = ["x", "y", "z"].indexOf(face);
-        gsap.to({ angle: 0}, {
-          angle: (Math.PI / 2) * direction * amount,
-          duration: 0.5,
-          ease: "none",
-          onUpdate: function (){
-            const theta = this.targets()[0].angle;
-            // mesh.position.x = center.x + radius * Math.sin(theta);
-            mesh.position[faces[(axisIndex + 1)%3]] = (targetPos[faces[(axisIndex + 1)%3]] * Math.cos(theta)) - (targetPos[faces[(axisIndex + 2)%3]] * Math.sin(theta));
-            mesh.position[faces[(axisIndex + 2)%3]] = (targetPos[faces[(axisIndex + 1)%3]] * Math.sin(theta)) + (targetPos[faces[(axisIndex + 2)%3]] * Math.cos(theta));
-            // mesh.position.z = center.z + radius * Math.cos(theta);
-            mesh.position[faces[axisIndex]] = faceSign; // Keep Y constant or animate for a spiral
+        gsap.to(
+          { angle: 0 },
+          {
+            angle: (Math.PI / 2) * direction * amount,
+            duration: 0.3,
+            ease: "none",
+            onUpdate: function () {
+              const theta = this.targets()[0].angle;
+              // mesh.position.x = center.x + radius * Math.sin(theta);
+              mesh.position[faces[(axisIndex + 1) % 3]] =
+                targetPos[faces[(axisIndex + 1) % 3]] * Math.cos(theta) -
+                targetPos[faces[(axisIndex + 2) % 3]] * Math.sin(theta);
+              mesh.position[faces[(axisIndex + 2) % 3]] =
+                targetPos[faces[(axisIndex + 1) % 3]] * Math.sin(theta) +
+                targetPos[faces[(axisIndex + 2) % 3]] * Math.cos(theta);
+              // mesh.position.z = center.z + radius * Math.cos(theta);
+              mesh.position[faces[axisIndex]] = faceSign; // Keep Y constant or animate for a spiral
+            },
           }
-        })
-
-        // const targetEuler = new THREE.Euler().setFromQuaternion(
-        //   targetQuat,
-        //   mesh.rotation.order
-        // );
-         // use current order ('XYZ')
-        // console.log("targetEuler:", targetEuler);
-        // gsap.to(mesh.rotation, {
-        //   duration: 1,
-        //   x: targetEuler.x,
-        //   y: targetEuler.y,
-        //   z: targetEuler.z,
-        //   ease: "none",
-        // });
+        );
 
         const fromQuat = mesh.quaternion.clone();
-const toQuat = targetQuat.clone();
+        const toQuat = targetQuat.clone();
 
-gsap.to({ t: 0 }, {
-  duration: 0.5,
-  t: 1,
-  ease: "none",
-  onUpdate() {
-    mesh.quaternion.copy(fromQuat).slerp(toQuat, this.targets()[0].t);
-  },
-});
-
-
+        gsap.to(
+          { t: 0 },
+          {
+            duration: 0.3,
+            t: 1,
+            ease: "none",
+            onUpdate() {
+              mesh.quaternion.copy(fromQuat).slerp(toQuat, this.targets()[0].t);
+            },
+          }
+        );
 
         if (face === "x") {
           let origY = rotationRef.current.y[0];
@@ -151,14 +155,8 @@ gsap.to({ t: 0 }, {
     });
   };
 
-  const mousePressRef = useRef(false);
-  const pointerRef = useRef(false);
-  const mouseInt = useRef(null);
-  const face = useRef(null);
-  const minus_face = useRef(1);
-  const cubelets = [];
-
   const handleCubePointerDown = (event) => {
+    controlsRef.current.enabled = false;
     mousePressRef.current = true;
     const worldPoint = event.point.clone();
 
@@ -167,44 +165,38 @@ gsap.to({ t: 0 }, {
       worldPoint.clone().y,
       worldPoint.clone().z,
     ].map((coord) => Math.round(coord * 1000) / 1000);
-    // console.log("mouseInt:", mouseInt.current);
+
     if (Math.abs(mouseInt.current[0]) === 1.5) {
       face.current = "x";
-      if (mouseInt.current[0] === -1.5){
+      if (mouseInt.current[0] === -1.5) {
         minus_face.current = -1;
-      }
-      else {
+      } else {
         minus_face.current = 1;
       }
-      // console.log("Face detected: X-axis");
     } else if (Math.abs(mouseInt.current[1]) === 1.5) {
       face.current = "y";
-      if (mouseInt.current[1] === -1.5){
+      if (mouseInt.current[1] === -1.5) {
         minus_face.current = -1;
-      }
-      else {
+      } else {
         minus_face.current = 1;
       }
-      // console.log("Face detected: Y-axis");
     } else if (Math.abs(mouseInt.current[2]) === 1.5) {
       face.current = "z";
-      if (mouseInt.current[2] === -1.5){
+      if (mouseInt.current[2] === -1.5) {
         minus_face.current = -1;
-      }
-      else {
+      } else {
         minus_face.current = 1;
       }
-      // console.log("Face detected: Z-axis");
     }
 
-    event.stopPropagation(); // prevents bubbling into individual cublets if needed
+    event.stopPropagation();
   };
 
   const handleCubePointerUp = (event) => {
     let rotateface = null;
     if (!mousePressRef.current) return;
 
-    mousePressRef.current = false;
+    // mousePressRef.current = false;
     const worldPoint = event.point.clone();
 
     // console.log("📦 Clicked on WHOLE cube at world point:", worldPoint);
@@ -252,7 +244,11 @@ gsap.to({ t: 0 }, {
   };
 
   const handleCubePointerMove = (event) => {
-    if (!mousePressRef.current) return;
+    if (!mousePressRef.current) {
+      // console.log("Pointer moved without pressing down");
+      return;
+    }
+
     const worldPoint = event.point.clone();
     midAnimHelper.current.midDx =
       (worldPoint.clone().x * 1000) / 1000 - mouseInt.current[0];
@@ -365,6 +361,13 @@ gsap.to({ t: 0 }, {
       onPointerDown={handleCubePointerDown}
       onPointerUp={handleCubePointerUp}
       // onPointerMove={handleCubePointerMove}
+      onPointerEnter={() => {
+        pointerDownRef.current = true;
+      }}
+      onPointerLeave={() => {
+        pointerDownRef.current = false;
+        if (controlsRef.current) controlsRef.current.enabled = true;
+      }}
     >
       {cubelets}
     </group>

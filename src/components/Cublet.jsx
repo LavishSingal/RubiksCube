@@ -15,30 +15,23 @@ const Cublet = ({ position, controlsRef, pointerRef, refCallback }) => {
   
   const handlePointerDown = (event) => {
     if (controlsRef.current) controlsRef.current.enabled = false;
-    if (!pointerRef.current) {
-      pointerRef.current = true;
-    }
-    else return;
   };
 
   const handlePointerUp = (event) => {
     if (controlsRef.current) controlsRef.current.enabled = true;
-    pointerRef.current = false;
   };
 
   const handlePointerOut = () => {
-    if (controlsRef.current) controlsRef.current.enabled = true;
-    pointerRef.current = false;
-  };
+    if (controlsRef.current) controlsRef.current.enabled = true;  };
 
   return (
     <Box
       ref={meshRef}
       args={[1, 1, 1]}
       position={position}
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
-      onPointerOut={handlePointerOut}
+      // onPointerDown={handlePointerDown}
+      // onPointerUp={handlePointerUp}
+      // onPointerOut={handlePointerOut}
     >
       <meshBasicMaterial attach="material-0" color={(position[0] === 1) ? '#B71234' : 'black'} />
       <meshBasicMaterial attach="material-1" color={(position[0] === -1) ? '#FF5800' : 'black'} />
