@@ -1,24 +1,23 @@
-import { Canvas, useThree } from "@react-three/fiber";
-import { Box, Edges, TrackballControls } from "@react-three/drei";
 import * as THREE from "three";
 import { useRef, useEffect } from "react";
-
 import Cublet from "./Cublet";
-import { max } from "three/tsl";
 import gsap from "gsap";
+import { useThree } from "@react-three/fiber";
+import { temp } from "three/tsl";
 
 const Cube = ({ controlsRef }) => {
   const cubletRefs = useRef({});
-  const midAnim = useRef(false);
-  const midAnimHelper = useRef({});
   const faces = ["x", "y", "z"];
   const mousePressRef = useRef(false);
   const pointerRef = useRef(false);
-  const pointerDownRef = useRef(false);
   const mouseInt = useRef(null);
   const face = useRef(null);
   const minus_face = useRef(1);
   const cubelets = [];
+  const mouseScreen = useRef([0, 0]);
+  const dirVectors = useRef({});
+  const { camera, size } = useThree();
+  const controlSwitch = useRef(true);
 
   const faceNormal = {
     x: new THREE.Vector3(1, 0, 0),
@@ -26,23 +25,86 @@ const Cube = ({ controlsRef }) => {
     z: new THREE.Vector3(0, 0, 1),
   };
 
-  useEffect(() => {
-    const handlePointerUpGlobal = (event) => {
-      if (mousePressRef.current) {
-        // You only get here if the user pressed on the cube and released somewhere
-        if (!pointerDownRef.current) {
-          console.log("❌ Released pointer OUTSIDE the cube");
-        } else {
-          console.log("✅ Released pointer INSIDE the cube");
-        }
-        mousePressRef.current = false;
-        face.current = null;
-      }
-    };
+  function dotOverMagB(a, b) {
+    if (a.length !== 2 || b.length !== 2) {
+      throw new Error("Both vectors must have exactly 2 components");
+    }
+    // 1. dot product
+    const dot = a[0] * b[0] + a[1] * b[1];
 
+    // 2. magnitude of b
+    const magB = Math.hypot(b[0], b[1]); // equivalent to sqrt(b0² + b1²)
+    const magA = Math.hypot(a[0], a[1]);
+
+    if (magB === 0 || magA === 0) {
+      return 0; // Avoid division by zero
+    }
+
+    // 3. normalized dot
+    return dot / (magB * magA);
+  }
+
+  const handlePointerUpGlobal = (event) => {
+    let rotateface = null;
+    if (!controlSwitch.current) return;
+    if (!mousePressRef.current) return;
+    mousePressRef.current = false;
+    // console.log(event.clientX, event.clientY);
+
+    const x_dir = event.clientX - mouseScreen.current[0];
+    const y_dir = event.clientY - mouseScreen.current[1];
+    const dir = [x_dir, y_dir];
+    const deltas = {};
+
+    for (const face of faces) {
+      deltas[face] = dotOverMagB(dir, dirVectors.current[face]);
+    }
+
+    const maxAxis = Object.keys(deltas).reduce((a, b) =>
+      Math.abs(deltas[a]) > Math.abs(deltas[b]) ? a : b
+    );
+    let maxValue = deltas[maxAxis];
+    let direction = 0;
+    if (maxAxis !== face.current && Math.abs(maxValue) > 0.3) {
+      direction = maxValue === 0 ? 0 : maxValue > 0 ? 1 : -1;
+
+      rotateface = ["x", "y", "z"].find(
+        (axis) => axis !== maxAxis && axis !== face.current
+      );
+    } else rotateface = null;
+
+    if (maxAxis === "z" || (rotateface === "z" && maxAxis === "x")) {
+      maxValue = -1 * maxValue;
+      direction = maxValue === 0 ? 0 : maxValue > 0 ? 1 : -1;
+    }
+    direction *= minus_face.current;
+    if (rotateface === "x") {
+      let sign =
+        mouseInt.current[0] > 0.5 ? 1 : mouseInt.current[0] < -0.5 ? -1 : 0;
+        controlSwitch.current = false;
+      rotateFaceQuat("x", sign, -direction, 1);
+    } else if (rotateface === "y") {
+      let sign =
+        mouseInt.current[1] > 0.5 ? 1 : mouseInt.current[1] < -0.5 ? -1 : 0;
+        controlSwitch.current = false;
+      rotateFaceQuat("y", sign, direction, 1);
+    } else if (rotateface === "z") {
+      let sign =
+        mouseInt.current[2] > 0.5 ? 1 : mouseInt.current[2] < -0.5 ? -1 : 0;
+        controlSwitch.current = false;
+      rotateFaceQuat("z", sign, direction, 1);
+    }
+    mouseInt.current = null;
+    face.current = null;
+    
+  };
+
+  useEffect(() => {
+    // window.addEventListener("pointermove", handlePointerMoveGlobal);
     window.addEventListener("pointerup", handlePointerUpGlobal);
 
     return () => {
+      // window.removeEventListener("pointermove", handlePointerMoveGlobal);
       window.removeEventListener("pointerup", handlePointerUpGlobal);
     };
   }, []);
@@ -95,7 +157,10 @@ const Cube = ({ controlsRef }) => {
               // mesh.position.z = center.z + radius * Math.cos(theta);
               mesh.position[faces[axisIndex]] = faceSign; // Keep Y constant or animate for a spiral
             },
-          }
+            onComplete: () => {
+              controlSwitch.current = true;
+            },
+          },
         );
 
         const fromQuat = mesh.quaternion.clone();
@@ -156,7 +221,7 @@ const Cube = ({ controlsRef }) => {
   };
 
   const handleCubePointerDown = (event) => {
-    controlsRef.current.enabled = false;
+    if (!controlSwitch.current) return;
     mousePressRef.current = true;
     const worldPoint = event.point.clone();
 
@@ -166,8 +231,45 @@ const Cube = ({ controlsRef }) => {
       worldPoint.clone().z,
     ].map((coord) => Math.round(coord * 1000) / 1000);
 
+    mouseScreen.current = [event.clientX, event.clientY];
+    // console.log("📦 Clicked on WHOLE cube at world point:", worldPoint);
+    // console.log(mouseInt.current);
+    // console.log("Mouse Screen Coordinates:", mouseScreen.current);
+
     if (Math.abs(mouseInt.current[0]) === 1.5) {
       face.current = "x";
+      dirVectors.current.x = [0, 0];
+
+      let tempArray = [...mouseInt.current];
+
+      let temp1 = new THREE.Vector3(...tempArray);
+      let ndc = temp1.project(camera);
+
+      const x_x = Math.round(((ndc.x + 1) / 2) * size.width);
+      const y_x = Math.round(((-ndc.y + 1) / 2) * size.height);
+      tempArray[1] += 1;
+
+      temp1 = new THREE.Vector3(...tempArray);
+      ndc = temp1.project(camera);
+
+      // 3. convert NDC to pixel coordinates
+      const x_y = Math.round(((ndc.x + 1) / 2) * size.width);
+      const y_y = Math.round(((-ndc.y + 1) / 2) * size.height);
+
+      dirVectors.current.y = [x_y - x_x, y_y - y_x];
+
+      tempArray[1] -= 1;
+      tempArray[2] += 1;
+
+      temp1 = new THREE.Vector3(...tempArray);
+      ndc = temp1.project(camera);
+
+      // 3. convert NDC to pixel coordinates
+      const x_z = Math.round(((ndc.x + 1) / 2) * size.width);
+      const y_z = Math.round(((-ndc.y + 1) / 2) * size.height);
+
+      dirVectors.current.z = [x_z - x_x, y_z - y_x];
+
       if (mouseInt.current[0] === -1.5) {
         minus_face.current = -1;
       } else {
@@ -175,6 +277,38 @@ const Cube = ({ controlsRef }) => {
       }
     } else if (Math.abs(mouseInt.current[1]) === 1.5) {
       face.current = "y";
+      dirVectors.current.y = [0, 0];
+
+      let tempArray = [...mouseInt.current];
+
+      let temp1 = new THREE.Vector3(...tempArray);
+      let ndc = temp1.project(camera);
+
+      const x_x = Math.round(((ndc.x + 1) / 2) * size.width);
+      const y_x = Math.round(((-ndc.y + 1) / 2) * size.height);
+      tempArray[0] += 1;
+
+      temp1 = new THREE.Vector3(...tempArray);
+      ndc = temp1.project(camera);
+
+      // 3. convert NDC to pixel coordinates
+      const x_y = Math.round(((ndc.x + 1) / 2) * size.width);
+      const y_y = Math.round(((-ndc.y + 1) / 2) * size.height);
+
+      dirVectors.current.x = [x_y - x_x, y_y - y_x];
+
+      tempArray[0] -= 1;
+      tempArray[2] += 1;
+
+      temp1 = new THREE.Vector3(...tempArray);
+      ndc = temp1.project(camera);
+
+      // 3. convert NDC to pixel coordinates
+      const x_z = Math.round(((ndc.x + 1) / 2) * size.width);
+      const y_z = Math.round(((-ndc.y + 1) / 2) * size.height);
+
+      dirVectors.current.z = [x_z - x_x, y_z - y_x];
+
       if (mouseInt.current[1] === -1.5) {
         minus_face.current = -1;
       } else {
@@ -182,6 +316,38 @@ const Cube = ({ controlsRef }) => {
       }
     } else if (Math.abs(mouseInt.current[2]) === 1.5) {
       face.current = "z";
+      dirVectors.current.z = [0, 0];
+
+      let tempArray = [...mouseInt.current];
+
+      let temp1 = new THREE.Vector3(...tempArray);
+      let ndc = temp1.project(camera);
+
+      const x_x = Math.round(((ndc.x + 1) / 2) * size.width);
+      const y_x = Math.round(((-ndc.y + 1) / 2) * size.height);
+      tempArray[0] += 1;
+
+      temp1 = new THREE.Vector3(...tempArray);
+      ndc = temp1.project(camera);
+
+      // 3. convert NDC to pixel coordinates
+      const x_y = Math.round(((ndc.x + 1) / 2) * size.width);
+      const y_y = Math.round(((-ndc.y + 1) / 2) * size.height);
+
+      dirVectors.current.x = [x_y - x_x, y_y - y_x];
+
+      tempArray[0] -= 1;
+      tempArray[1] += 1;
+
+      temp1 = new THREE.Vector3(...tempArray);
+      ndc = temp1.project(camera);
+
+      // 3. convert NDC to pixel coordinates
+      const x_z = Math.round(((ndc.x + 1) / 2) * size.width);
+      const y_z = Math.round(((-ndc.y + 1) / 2) * size.height);
+
+      dirVectors.current.y = [x_z - x_x, y_z - y_x];
+
       if (mouseInt.current[2] === -1.5) {
         minus_face.current = -1;
       } else {
@@ -195,6 +361,8 @@ const Cube = ({ controlsRef }) => {
   const handleCubePointerUp = (event) => {
     let rotateface = null;
     if (!mousePressRef.current) return;
+
+    // mousePressRef.current = false;
 
     // mousePressRef.current = false;
     const worldPoint = event.point.clone();
@@ -243,103 +411,6 @@ const Cube = ({ controlsRef }) => {
     event.stopPropagation(); // prevents bubbling into individual cublets if needed
   };
 
-  const handleCubePointerMove = (event) => {
-    if (!mousePressRef.current) {
-      // console.log("Pointer moved without pressing down");
-      return;
-    }
-
-    const worldPoint = event.point.clone();
-    midAnimHelper.current.midDx =
-      (worldPoint.clone().x * 1000) / 1000 - mouseInt.current[0];
-    midAnimHelper.current.midDy =
-      (worldPoint.clone().y * 1000) / 1000 - mouseInt.current[1];
-    midAnimHelper.current.midDz =
-      (worldPoint.clone().z * 1000) / 1000 - mouseInt.current[2];
-    midAnimHelper.current.midDeltas = {
-      x: midAnimHelper.current.midDx,
-      y: midAnimHelper.current.midDy,
-      z: midAnimHelper.current.midDz,
-    };
-
-    midAnimHelper.current.maxAxis = Object.keys(
-      midAnimHelper.current.midDeltas
-    ).reduce((a, b) =>
-      Math.abs(midAnimHelper.current.midDeltas[a]) >
-      Math.abs(midAnimHelper.current.midDeltas[b])
-        ? a
-        : b
-    );
-    midAnimHelper.current.maxValue =
-      midAnimHelper.current.midDeltas[midAnimHelper.current.maxAxis];
-
-    if (!midAnim.current) {
-      midAnimHelper.current.direction = 0;
-      if (
-        midAnimHelper.current.maxAxis !== face.current &&
-        Math.abs(midAnimHelper.current.maxValue) > 0.1
-      ) {
-        midAnim.current = true;
-        midAnimHelper.current.direction =
-          midAnimHelper.current.maxValue === 0
-            ? 0
-            : midAnimHelper.current.maxValue > 0
-            ? 1
-            : -1;
-        midAnimHelper.current.rotateface = ["x", "y", "z"].find(
-          (axis) =>
-            axis !== midAnimHelper.current.maxAxis && axis !== face.current
-        );
-      } else {
-        midAnimHelper.current.rotateface = null;
-      }
-
-      if (
-        midAnimHelper.current.maxAxis === "z" ||
-        (midAnimHelper.current.rotateface === "z" &&
-          midAnimHelper.current.maxAxis === "x")
-      ) {
-        midAnimHelper.current.maxValue = -1 * midAnimHelper.current.maxValue;
-        midAnimHelper.current.direction =
-          midAnimHelper.current.maxValue === 0
-            ? 0
-            : midAnimHelper.current.maxValue > 0
-            ? 1
-            : -1;
-      }
-    } else {
-      if (
-        midAnimHelper.current.maxAxis === "z" ||
-        (midAnimHelper.current.rotateface === "z" &&
-          midAnimHelper.current.maxAxis === "x")
-      ) {
-        midAnimHelper.current.maxValue = -1 * midAnimHelper.current.maxValue;
-        midAnimHelper.current.direction =
-          midAnimHelper.current.maxValue === 0
-            ? 0
-            : midAnimHelper.current.maxValue > 0
-            ? 1
-            : -1;
-      }
-
-      if (midAnimHelper.current.rotateface === "x") {
-        let sign =
-          mouseInt.current[0] > 0.5 ? 1 : mouseInt.current[0] < -0.5 ? -1 : 0;
-        rotateFaceQuat("x", sign, -midAnimHelper.current.direction, 0.01);
-      } else if (midAnimHelper.current.rotateface === "y") {
-        let sign =
-          mouseInt.current[1] > 0.5 ? 1 : mouseInt.current[1] < -0.5 ? -1 : 0;
-        rotateFaceQuat("y", sign, midAnimHelper.current.direction, 0.01);
-      } else if (midAnimHelper.current.rotateface === "z") {
-        let sign =
-          mouseInt.current[2] > 0.5 ? 1 : mouseInt.current[2] < -0.5 ? -1 : 0;
-        rotateFaceQuat("z", sign, midAnimHelper.current.direction, 0.01);
-      }
-    }
-
-    event.stopPropagation();
-  };
-
   for (let x = -1; x <= 1; x++) {
     for (let y = -1; y <= 1; y++) {
       for (let z = -1; z <= 1; z++) {
@@ -359,15 +430,7 @@ const Cube = ({ controlsRef }) => {
   return (
     <group
       onPointerDown={handleCubePointerDown}
-      onPointerUp={handleCubePointerUp}
-      // onPointerMove={handleCubePointerMove}
-      onPointerEnter={() => {
-        pointerDownRef.current = true;
-      }}
-      onPointerLeave={() => {
-        pointerDownRef.current = false;
-        if (controlsRef.current) controlsRef.current.enabled = true;
-      }}
+      // onPointerUp={handleCubePointerUp}
     >
       {cubelets}
     </group>

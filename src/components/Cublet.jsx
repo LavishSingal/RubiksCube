@@ -29,9 +29,9 @@ const Cublet = ({ position, controlsRef, pointerRef, refCallback }) => {
       ref={meshRef}
       args={[1, 1, 1]}
       position={position}
-      // onPointerDown={handlePointerDown}
-      // onPointerUp={handlePointerUp}
-      // onPointerOut={handlePointerOut}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerOut={handlePointerOut}
     >
       <meshBasicMaterial attach="material-0" color={(position[0] === 1) ? '#B71234' : 'black'} />
       <meshBasicMaterial attach="material-1" color={(position[0] === -1) ? '#FF5800' : 'black'} />
