@@ -15,21 +15,14 @@ const Cublet = ({ position, controlsRef, pointerRef, refCallback }) => {
   
   const handlePointerDown = (event) => {
     if (controlsRef.current) controlsRef.current.enabled = false;
-    if (!pointerRef.current) {
-      pointerRef.current = true;
-    }
-    else return;
   };
 
   const handlePointerUp = (event) => {
     if (controlsRef.current) controlsRef.current.enabled = true;
-    pointerRef.current = false;
   };
 
   const handlePointerOut = () => {
-    if (controlsRef.current) controlsRef.current.enabled = true;
-    pointerRef.current = false;
-  };
+    if (controlsRef.current) controlsRef.current.enabled = true;  };
 
   return (
     <Box
