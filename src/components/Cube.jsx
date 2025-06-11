@@ -3,9 +3,8 @@ import { useRef, useEffect } from "react";
 import Cublet from "./Cublet";
 import gsap from "gsap";
 import { useThree } from "@react-three/fiber";
-import { temp } from "three/tsl";
 
-const Cube = ({ controlsRef }) => {
+const Cube = ({ controlsRef, undoRedoBtnRef }) => {
   const cubletRefs = useRef({});
   const faces = ["x", "y", "z"];
   const mousePressRef = useRef(false);
@@ -18,6 +17,16 @@ const Cube = ({ controlsRef }) => {
   const dirVectors = useRef({});
   const { camera, size } = useThree();
   const controlSwitch = useRef(true);
+  const centerCublets = {
+    w: null,
+    r: null,
+    o: null,
+    g: null,
+    b: null,
+    y: null,
+  };
+  const animationStack = useRef([]);
+  const animationRedoStack = useRef([]);
 
   const faceNormal = {
     x: new THREE.Vector3(1, 0, 0),
@@ -41,7 +50,22 @@ const Cube = ({ controlsRef }) => {
     }
 
     // 3. normalized dot
-    return dot / (magB * magA);
+    return dot / magB;
+  }
+
+  function getAxisRoundedToOne(vec) {
+    const rounded = {
+      x: Math.round(vec.x * 100) / 100,
+      y: Math.round(vec.y * 100) / 100,
+      z: Math.round(vec.z * 100) / 100,
+    };
+
+    for (const key in rounded) {
+      if (Math.abs(rounded[key]) === 1) {
+        return key; // Return the first axis that matches
+      }
+    }
+    return null;
   }
 
   const handlePointerUpGlobal = (event) => {
@@ -65,7 +89,7 @@ const Cube = ({ controlsRef }) => {
     );
     let maxValue = deltas[maxAxis];
     let direction = 0;
-    if (maxAxis !== face.current && Math.abs(maxValue) > 0.3) {
+    if (maxAxis !== face.current && Math.abs(maxValue) > 10) {
       direction = maxValue === 0 ? 0 : maxValue > 0 ? 1 : -1;
 
       rotateface = ["x", "y", "z"].find(
@@ -81,23 +105,74 @@ const Cube = ({ controlsRef }) => {
     if (rotateface === "x") {
       let sign =
         mouseInt.current[0] > 0.5 ? 1 : mouseInt.current[0] < -0.5 ? -1 : 0;
-        controlSwitch.current = false;
+      controlSwitch.current = false;
       rotateFaceQuat("x", sign, -direction, 1);
     } else if (rotateface === "y") {
       let sign =
         mouseInt.current[1] > 0.5 ? 1 : mouseInt.current[1] < -0.5 ? -1 : 0;
-        controlSwitch.current = false;
+      controlSwitch.current = false;
       rotateFaceQuat("y", sign, direction, 1);
     } else if (rotateface === "z") {
       let sign =
         mouseInt.current[2] > 0.5 ? 1 : mouseInt.current[2] < -0.5 ? -1 : 0;
-        controlSwitch.current = false;
+      controlSwitch.current = false;
       rotateFaceQuat("z", sign, direction, 1);
     }
     mouseInt.current = null;
     face.current = null;
-    
   };
+
+  useEffect(() => {
+    const lastHeldKeyRef = { current: null }; // define inside effect if it's only used here
+
+    const handleKeyDown = (event) => {
+      const key = event.key.toLowerCase();
+
+      if (key in centerCublets) {
+        lastHeldKeyRef.current = key;
+      }
+
+      if (key === "arrowleft" || key === "arrowright") {
+        const heldKey = lastHeldKeyRef.current;
+        // console.log("Held Key:", heldKey);
+        if (heldKey && centerCublets[heldKey] && controlSwitch.current) {
+          // console.log("Held Key:", heldKey);
+          controlSwitch.current = false;
+          let direction = key === "arrowleft" ? -1 : 1;
+          const faceRef = centerCublets[heldKey];
+          const currentPos = new THREE.Vector3();
+          faceRef.current.getWorldPosition(currentPos);
+          const face = getAxisRoundedToOne(currentPos);
+          // if (face === "z") {
+          direction *= -1; // Reverse direction for z-axis
+          // }
+          direction *= Math.round(currentPos[face]);
+          // console.log("Face:", face);
+          if (!face) return;
+          // console.log("Held Key:", heldKey);
+          // console.log("Current Position:", Math.round(currentPos[face]));
+
+          rotateFaceQuat(face, Math.round(currentPos[face]), direction, 1);
+          // Do something here
+        }
+      }
+    };
+
+    const handleKeyUp = (event) => {
+      const key = event.key.toLowerCase();
+      if (key === lastHeldKeyRef.current) {
+        lastHeldKeyRef.current = null;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
 
   useEffect(() => {
     // window.addEventListener("pointermove", handlePointerMoveGlobal);
@@ -109,20 +184,95 @@ const Cube = ({ controlsRef }) => {
     };
   }, []);
 
+  const handleUndo = (event) => {
+    // console.log("Undo key pressed");
+    // console.log("U key pressed");
+    if (animationStack.current.length > 0 && controlSwitch.current) {
+      const lastAnimation = animationStack.current.pop();
+      animationRedoStack.current.push(lastAnimation);
+      controlSwitch.current = false;
+      // console.log("Undoing last animation:", lastAnimation);
+      rotateFaceQuat(
+        lastAnimation[0],
+        lastAnimation[1],
+        -lastAnimation[2],
+        lastAnimation[3],
+        true
+      );
+      // Your custom logic here
+    }
+  };
+
+  const handleRedo = (event) => {
+    // console.log("Undo key pressed");
+    // console.log("U key pressed");
+    if (animationRedoStack.current.length > 0 && controlSwitch.current) {
+      const lastAnimation = animationRedoStack.current.pop();
+      animationStack.current.push(lastAnimation);
+      controlSwitch.current = false;
+      // console.log("Undoing last animation:", lastAnimation);
+      rotateFaceQuat(
+        lastAnimation[0],
+        lastAnimation[1],
+        lastAnimation[2],
+        lastAnimation[3],
+        true
+      );
+      // Your custom logic here
+    }
+  };
+
+  undoRedoBtnRef.current.push(handleUndo);
+  undoRedoBtnRef.current.push(handleRedo);
+
   const registerCublet = (position, ref, rotationRef) => {
     const key = position.join(",");
     cubletRefs.current[key] = { ref, rotationRef };
+    if (position[0] === 1 && position[1] === 0 && position[2] === 0) {
+      centerCublets.r = ref;
+    }
+    if (position[0] === -1 && position[1] === 0 && position[2] === 0) {
+      centerCublets.o = ref;
+    }
+    if (position[0] === 0 && position[1] === 1 && position[2] === 0) {
+      centerCublets.w = ref;
+    }
+    if (position[0] === 0 && position[1] === -1 && position[2] === 0) {
+      centerCublets.y = ref;
+    }
+    if (position[0] === 0 && position[1] === 0 && position[2] === 1) {
+      centerCublets.g = ref;
+    }
+    if (position[0] === 0 && position[1] === 0 && position[2] === -1) {
+      centerCublets.b = ref;
+    }
   };
 
-  const rotateFaceQuat = (face, faceSign, direction, amount) => {
+  const rotateFaceQuat = (
+    face,
+    faceSign,
+    direction,
+    amount,
+    isUndo = false
+  ) => {
+    if (!isUndo) {
+      animationStack.current.push([face, faceSign, direction, amount]);
+      animationRedoStack.current = [];
+    }
+    // else{
+    //   animationStack.current.pop();
+    // }
+    // const t1 = gsap.timeline();
     Object.values(cubletRefs.current).forEach(({ ref, rotationRef }) => {
       if (!ref.current) return;
+      // console.log("step 1")
 
       const currentPos = new THREE.Vector3();
       ref.current.getWorldPosition(currentPos);
       const faceRotated = Math.round(currentPos[face]);
-
+      // console.log(faceRotated, faceSign);
       if (faceRotated === faceSign) {
+        // console.log("step2")
         const new_dir = rotationRef.current[face][1];
         const quat = new THREE.Quaternion();
         const mesh = ref.current;
@@ -139,44 +289,44 @@ const Cube = ({ controlsRef }) => {
         targetQuat.normalize();
 
         const axisIndex = ["x", "y", "z"].indexOf(face);
-        gsap.to(
-          { angle: 0 },
-          {
-            angle: (Math.PI / 2) * direction * amount,
-            duration: 0.3,
-            ease: "none",
-            onUpdate: function () {
-              const theta = this.targets()[0].angle;
-              // mesh.position.x = center.x + radius * Math.sin(theta);
-              mesh.position[faces[(axisIndex + 1) % 3]] =
-                targetPos[faces[(axisIndex + 1) % 3]] * Math.cos(theta) -
-                targetPos[faces[(axisIndex + 2) % 3]] * Math.sin(theta);
-              mesh.position[faces[(axisIndex + 2) % 3]] =
-                targetPos[faces[(axisIndex + 1) % 3]] * Math.sin(theta) +
-                targetPos[faces[(axisIndex + 2) % 3]] * Math.cos(theta);
-              // mesh.position.z = center.z + radius * Math.cos(theta);
-              mesh.position[faces[axisIndex]] = faceSign; // Keep Y constant or animate for a spiral
-            },
-            onComplete: () => {
-              controlSwitch.current = true;
-            },
-          },
-        );
 
         const fromQuat = mesh.quaternion.clone();
         const toQuat = targetQuat.clone();
 
         gsap.to(
-          { t: 0 },
+          { t: 0, angle: 0 },
           {
-            duration: 0.3,
             t: 1,
+            angle: (Math.PI / 2) * direction * amount,
+            duration: 0.3,
             ease: "none",
             onUpdate() {
-              mesh.quaternion.copy(fromQuat).slerp(toQuat, this.targets()[0].t);
+              const state = this.targets()[0];
+
+              // Quaternion slerp
+              mesh.quaternion.copy(fromQuat).slerp(toQuat, state.t);
+
+              // Position circular path
+              const theta = state.angle;
+              const axisA = faces[(axisIndex + 1) % 3];
+              const axisB = faces[(axisIndex + 2) % 3];
+
+              mesh.position[axisA] =
+                targetPos[axisA] * Math.cos(theta) -
+                targetPos[axisB] * Math.sin(theta);
+              mesh.position[axisB] =
+                targetPos[axisA] * Math.sin(theta) +
+                targetPos[axisB] * Math.cos(theta);
+
+              mesh.position[faces[axisIndex]] = faceSign;
+            },
+            onComplete: () => {
+              controlSwitch.current = true;
             },
           }
         );
+
+        // animationStack.current.push(t1);
 
         if (face === "x") {
           let origY = rotationRef.current.y[0];
@@ -214,8 +364,6 @@ const Cube = ({ controlsRef }) => {
           mesh.rotation[new_dir] -=
             Math.PI * 2 * Math.sign(mesh.rotation[new_dir]);
         }
-        const currentPos1 = new THREE.Vector3();
-        mesh.getWorldPosition(currentPos1);
       }
     });
   };
