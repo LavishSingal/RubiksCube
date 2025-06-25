@@ -3,6 +3,7 @@ import { useRef, useEffect } from "react";
 import Cublet from "./Cublet";
 import gsap from "gsap";
 import { useThree } from "@react-three/fiber";
+import { applyShiftToGrid } from "./gridLogic";
 
 const Cube = ({ controlsRef, undoRedoBtnRef }) => {
   const cubletRefs = useRef({});
@@ -17,6 +18,7 @@ const Cube = ({ controlsRef, undoRedoBtnRef }) => {
   const dirVectors = useRef({});
   const { camera, size } = useThree();
   const controlSwitch = useRef(true);
+  const lastHeldKeyRef = { current: null };
   const centerCublets = {
     w: null,
     r: null,
@@ -27,14 +29,25 @@ const Cube = ({ controlsRef, undoRedoBtnRef }) => {
   };
   const animationStack = useRef([]);
   const animationRedoStack = useRef([]);
-
   const faceNormal = {
     x: new THREE.Vector3(1, 0, 0),
     y: new THREE.Vector3(0, 1, 0),
     z: new THREE.Vector3(0, 0, 1),
   };
+  const cubeState = useRef([
+    ["W", "W", "W", "W", "W", "W", "W", "W", "W"],
+    ["O", "O", "O", "O", "O", "O", "O", "O", "O"],
+    ["G", "G", "G", "G", "G", "G", "G", "G", "G"],
+    ["Y", "Y", "Y", "Y", "Y", "Y", "Y", "Y", "Y"],
+    ["R", "R", "R", "R", "R", "R", "R", "R", "R"],
+    ["B", "B", "B", "B", "B", "B", "B", "B", "B"],
+  ]);
 
-  function dotOverMagB(a, b) {
+  const updateCubeState = (face, faceSign, direction) => {
+    applyShiftToGrid(cubeState.current, face, faceSign, direction);
+  };
+
+  const dotOverMagB = (a, b) => {
     if (a.length !== 2 || b.length !== 2) {
       throw new Error("Both vectors must have exactly 2 components");
     }
@@ -51,9 +64,9 @@ const Cube = ({ controlsRef, undoRedoBtnRef }) => {
 
     // 3. normalized dot
     return dot / magB;
-  }
+  };
 
-  function getAxisRoundedToOne(vec) {
+  const getAxisRoundedToOne = (vec) => {
     const rounded = {
       x: Math.round(vec.x * 100) / 100,
       y: Math.round(vec.y * 100) / 100,
@@ -66,7 +79,7 @@ const Cube = ({ controlsRef, undoRedoBtnRef }) => {
       }
     }
     return null;
-  }
+  };
 
   const handlePointerUpGlobal = (event) => {
     let rotateface = null;
@@ -122,69 +135,55 @@ const Cube = ({ controlsRef, undoRedoBtnRef }) => {
     face.current = null;
   };
 
+  const handleKeyDown = (event) => {
+    const key = event.key.toLowerCase();
+
+    if (key in centerCublets) {
+      lastHeldKeyRef.current = key;
+    }
+
+    if (key === "arrowleft" || key === "arrowright") {
+      const heldKey = lastHeldKeyRef.current;
+
+      if (heldKey && centerCublets[heldKey] && controlSwitch.current) {
+        controlSwitch.current = false;
+
+        let direction = key === "arrowleft" ? -1 : 1;
+        const faceRef = centerCublets[heldKey];
+        const currentPos = new THREE.Vector3();
+        faceRef.current.getWorldPosition(currentPos);
+
+        const face = getAxisRoundedToOne(currentPos);
+        if (!face) return;
+
+        direction *= -1; // Reverse direction for z-axis
+        direction *= Math.round(currentPos[face]);
+
+        rotateFaceQuat(face, Math.round(currentPos[face]), direction, 1);
+      }
+    }
+  };
+
+  const handleKeyUp = (event) => {
+    const key = event.key.toLowerCase();
+    if (key === lastHeldKeyRef.current) {
+      lastHeldKeyRef.current = null;
+    }
+  };
+
   useEffect(() => {
-    const lastHeldKeyRef = { current: null }; // define inside effect if it's only used here
-
-    const handleKeyDown = (event) => {
-      const key = event.key.toLowerCase();
-
-      if (key in centerCublets) {
-        lastHeldKeyRef.current = key;
-      }
-
-      if (key === "arrowleft" || key === "arrowright") {
-        const heldKey = lastHeldKeyRef.current;
-        // console.log("Held Key:", heldKey);
-        if (heldKey && centerCublets[heldKey] && controlSwitch.current) {
-          // console.log("Held Key:", heldKey);
-          controlSwitch.current = false;
-          let direction = key === "arrowleft" ? -1 : 1;
-          const faceRef = centerCublets[heldKey];
-          const currentPos = new THREE.Vector3();
-          faceRef.current.getWorldPosition(currentPos);
-          const face = getAxisRoundedToOne(currentPos);
-          // if (face === "z") {
-          direction *= -1; // Reverse direction for z-axis
-          // }
-          direction *= Math.round(currentPos[face]);
-          // console.log("Face:", face);
-          if (!face) return;
-          // console.log("Held Key:", heldKey);
-          // console.log("Current Position:", Math.round(currentPos[face]));
-
-          rotateFaceQuat(face, Math.round(currentPos[face]), direction, 1);
-          // Do something here
-        }
-      }
-    };
-
-    const handleKeyUp = (event) => {
-      const key = event.key.toLowerCase();
-      if (key === lastHeldKeyRef.current) {
-        lastHeldKeyRef.current = null;
-      }
-    };
-
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("pointerup", handlePointerUpGlobal);
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
-    };
-  }, []);
-
-  useEffect(() => {
-    // window.addEventListener("pointermove", handlePointerMoveGlobal);
-    window.addEventListener("pointerup", handlePointerUpGlobal);
-
-    return () => {
-      // window.removeEventListener("pointermove", handlePointerMoveGlobal);
       window.removeEventListener("pointerup", handlePointerUpGlobal);
     };
   }, []);
 
-  const handleUndo = (event) => {
+  const handleUndo = () => {
     // console.log("Undo key pressed");
     // console.log("U key pressed");
     if (animationStack.current.length > 0 && controlSwitch.current) {
@@ -199,18 +198,18 @@ const Cube = ({ controlsRef, undoRedoBtnRef }) => {
         lastAnimation[3],
         true
       );
+      // console.log("move reversed");
       // Your custom logic here
     }
   };
 
-  const handleRedo = (event) => {
+  const handleRedo = () => {
     // console.log("Undo key pressed");
     // console.log("U key pressed");
     if (animationRedoStack.current.length > 0 && controlSwitch.current) {
       const lastAnimation = animationRedoStack.current.pop();
       animationStack.current.push(lastAnimation);
       controlSwitch.current = false;
-      // console.log("Undoing last animation:", lastAnimation);
       rotateFaceQuat(
         lastAnimation[0],
         lastAnimation[1],
@@ -222,8 +221,20 @@ const Cube = ({ controlsRef, undoRedoBtnRef }) => {
     }
   };
 
-  undoRedoBtnRef.current.push(handleUndo);
-  undoRedoBtnRef.current.push(handleRedo);
+  const handleDoAll = () => {
+    const doNextUndo = () => {
+      if (animationStack.current.length === 0) return;
+
+      if (controlSwitch.current) {
+        handleUndo();
+        setTimeout(doNextUndo, 100); // delay for animation duration
+      } else {
+        setTimeout(doNextUndo, 100); // check again after a short delay
+      }
+    };
+
+    doNextUndo();
+  };
 
   const registerCublet = (position, ref, rotationRef) => {
     const key = position.join(",");
@@ -255,24 +266,26 @@ const Cube = ({ controlsRef, undoRedoBtnRef }) => {
     amount,
     isUndo = false
   ) => {
+    // console.log("hello");
     if (!isUndo) {
       animationStack.current.push([face, faceSign, direction, amount]);
       animationRedoStack.current = [];
     }
+    updateCubeState(face, faceSign, direction);
     // else{
     //   animationStack.current.pop();
     // }
     // const t1 = gsap.timeline();
     Object.values(cubletRefs.current).forEach(({ ref, rotationRef }) => {
       if (!ref.current) return;
-      // console.log("step 1")
+      // console.log("step 1");
 
       const currentPos = new THREE.Vector3();
       ref.current.getWorldPosition(currentPos);
       const faceRotated = Math.round(currentPos[face]);
       // console.log(faceRotated, faceSign);
       if (faceRotated === faceSign) {
-        // console.log("step2")
+        // console.log("step2");
         const new_dir = rotationRef.current[face][1];
         const quat = new THREE.Quaternion();
         const mesh = ref.current;
@@ -299,7 +312,7 @@ const Cube = ({ controlsRef, undoRedoBtnRef }) => {
             t: 1,
             angle: (Math.PI / 2) * direction * amount,
             duration: 0.3,
-            ease: "none",
+            ease: "sine.inOut",
             onUpdate() {
               const state = this.targets()[0];
 
@@ -322,6 +335,7 @@ const Cube = ({ controlsRef, undoRedoBtnRef }) => {
             },
             onComplete: () => {
               controlSwitch.current = true;
+              // console.log("done");
             },
           }
         );
@@ -506,58 +520,9 @@ const Cube = ({ controlsRef, undoRedoBtnRef }) => {
     event.stopPropagation();
   };
 
-  const handleCubePointerUp = (event) => {
-    let rotateface = null;
-    if (!mousePressRef.current) return;
-
-    // mousePressRef.current = false;
-
-    // mousePressRef.current = false;
-    const worldPoint = event.point.clone();
-
-    // console.log("📦 Clicked on WHOLE cube at world point:", worldPoint);
-    const dx = (worldPoint.clone().x * 1000) / 1000 - mouseInt.current[0];
-    const dy = (worldPoint.clone().y * 1000) / 1000 - mouseInt.current[1];
-    const dz = (worldPoint.clone().z * 1000) / 1000 - mouseInt.current[2];
-
-    const deltas = { x: dx, y: dy, z: dz };
-
-    const maxAxis = Object.keys(deltas).reduce((a, b) =>
-      Math.abs(deltas[a]) > Math.abs(deltas[b]) ? a : b
-    );
-    let maxValue = deltas[maxAxis];
-    let direction = 0;
-    if (maxAxis !== face.current && Math.abs(maxValue) > 0.3) {
-      direction = maxValue === 0 ? 0 : maxValue > 0 ? 1 : -1;
-
-      rotateface = ["x", "y", "z"].find(
-        (axis) => axis !== maxAxis && axis !== face.current
-      );
-    } else rotateface = null;
-
-    if (maxAxis === "z" || (rotateface === "z" && maxAxis === "x")) {
-      maxValue = -1 * maxValue;
-      direction = maxValue === 0 ? 0 : maxValue > 0 ? 1 : -1;
-    }
-    direction *= minus_face.current;
-    if (rotateface === "x") {
-      let sign =
-        mouseInt.current[0] > 0.5 ? 1 : mouseInt.current[0] < -0.5 ? -1 : 0;
-      rotateFaceQuat("x", sign, -direction, 1);
-    } else if (rotateface === "y") {
-      let sign =
-        mouseInt.current[1] > 0.5 ? 1 : mouseInt.current[1] < -0.5 ? -1 : 0;
-      rotateFaceQuat("y", sign, direction, 1);
-    } else if (rotateface === "z") {
-      let sign =
-        mouseInt.current[2] > 0.5 ? 1 : mouseInt.current[2] < -0.5 ? -1 : 0;
-      rotateFaceQuat("z", sign, direction, 1);
-    }
-    mouseInt.current = null;
-    face.current = null;
-
-    event.stopPropagation(); // prevents bubbling into individual cublets if needed
-  };
+  undoRedoBtnRef.current.push(handleUndo);
+  undoRedoBtnRef.current.push(handleRedo);
+  undoRedoBtnRef.current.push(handleDoAll);
 
   for (let x = -1; x <= 1; x++) {
     for (let y = -1; y <= 1; y++) {

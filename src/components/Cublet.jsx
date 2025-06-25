@@ -1,7 +1,5 @@
-import { Canvas, useFrame } from "@react-three/fiber"
-import { Box, Edges, TrackballControls } from '@react-three/drei';
-import * as THREE from 'three';
-import { useRef, useEffect, useState, use } from "react";
+import { Box, Edges } from '@react-three/drei';
+import { useRef, useEffect } from "react";
 
 const Cublet = ({ position, controlsRef, pointerRef, refCallback }) => {
   const meshRef = useRef();
