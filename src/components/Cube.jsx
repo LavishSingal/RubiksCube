@@ -5,7 +5,7 @@ import gsap from "gsap";
 import { useThree } from "@react-three/fiber";
 import { applyShiftToGrid } from "./gridLogic";
 
-const Cube = ({ controlsRef, undoRedoBtnRef }) => {
+const Cube = ({ controlsRef, undoRedoBtnRef, goal = null, setComp = null }) => {
   const cubletRefs = useRef({});
   const faces = ["x", "y", "z"];
   const mousePressRef = useRef(false);
@@ -42,6 +42,7 @@ const Cube = ({ controlsRef, undoRedoBtnRef }) => {
     ["R", "R", "R", "R", "R", "R", "R", "R", "R"],
     ["B", "B", "B", "B", "B", "B", "B", "B", "B"],
   ]);
+  const cubeGoalRef = useRef(false);
 
   const updateCubeState = (face, faceSign, direction) => {
     applyShiftToGrid(cubeState.current, face, faceSign, direction);
@@ -183,7 +184,7 @@ const Cube = ({ controlsRef, undoRedoBtnRef }) => {
     };
   }, []);
 
-  const handleUndo = () => {
+  const handleUndo = (auto) => {
     // console.log("Undo key pressed");
     // console.log("U key pressed");
     if (animationStack.current.length > 0 && controlSwitch.current) {
@@ -196,7 +197,8 @@ const Cube = ({ controlsRef, undoRedoBtnRef }) => {
         lastAnimation[1],
         -lastAnimation[2],
         lastAnimation[3],
-        true
+        true,
+        auto
       );
       // console.log("move reversed");
       // Your custom logic here
@@ -221,12 +223,12 @@ const Cube = ({ controlsRef, undoRedoBtnRef }) => {
     }
   };
 
-  const handleDoAll = () => {
+  const handleDoAll = (auto = false) => {
     const doNextUndo = () => {
       if (animationStack.current.length === 0) return;
 
       if (controlSwitch.current) {
-        handleUndo();
+        handleUndo(auto);
         setTimeout(doNextUndo, 100); // delay for animation duration
       } else {
         setTimeout(doNextUndo, 100); // check again after a short delay
@@ -234,6 +236,42 @@ const Cube = ({ controlsRef, undoRedoBtnRef }) => {
     };
 
     doNextUndo();
+  };
+
+  const handleMove = (moveStack) => {
+    // console.log("Undo key pressed");
+    // console.log("U key pressed");
+    if (moveStack.length > 0 && controlSwitch.current) {
+      const lastAnimation = moveStack.pop();
+      controlSwitch.current = false;
+      // console.log("Undoing last animation:", lastAnimation);
+      rotateFaceQuat(
+        lastAnimation[0],
+        lastAnimation[1],
+        lastAnimation[2],
+        1,
+        true,
+        true
+      );
+      // console.log("move reversed");
+      // Your custom logic here
+    }
+  };
+
+  const handleStartShuffle = (moveStack) => {
+    const doNextUndo = () => {
+      if (moveStack.length === 0) return;
+
+      if (controlSwitch.current) {
+        handleMove(moveStack);
+        setTimeout(doNextUndo, 100); // delay for animation duration
+      } else {
+        setTimeout(doNextUndo, 100); // check again after a short delay
+      }
+    };
+
+    doNextUndo();
+    cubeGoalRef.current = true;
   };
 
   const registerCublet = (position, ref, rotationRef) => {
@@ -259,12 +297,28 @@ const Cube = ({ controlsRef, undoRedoBtnRef }) => {
     }
   };
 
+  const checkGoal = () => {
+    console.log("Checking goal state...");
+    const target = ["W", "W", "W", "W", "W", "W", "W", "W", "W"];
+
+    const isPresent = cubeState.current.some(
+      (face) =>
+        face.length === target.length &&
+        face.every((val, i) => val === target[i])
+    );
+    if (isPresent) {
+      console.log("Goal state achieved!");
+      setComp();
+    }
+  };
+
   const rotateFaceQuat = (
     face,
     faceSign,
     direction,
     amount,
-    isUndo = false
+    isUndo = false,
+    auto = false
   ) => {
     // console.log("hello");
     if (!isUndo) {
@@ -272,6 +326,10 @@ const Cube = ({ controlsRef, undoRedoBtnRef }) => {
       animationRedoStack.current = [];
     }
     updateCubeState(face, faceSign, direction);
+    console.log("cubegoalRef", cubeGoalRef);
+    if (cubeGoalRef.current && !auto) {
+      checkGoal();
+    }
     // else{
     //   animationStack.current.pop();
     // }
@@ -335,6 +393,7 @@ const Cube = ({ controlsRef, undoRedoBtnRef }) => {
             },
             onComplete: () => {
               controlSwitch.current = true;
+
               // console.log("done");
             },
           }
@@ -523,6 +582,7 @@ const Cube = ({ controlsRef, undoRedoBtnRef }) => {
   undoRedoBtnRef.current.push(handleUndo);
   undoRedoBtnRef.current.push(handleRedo);
   undoRedoBtnRef.current.push(handleDoAll);
+  undoRedoBtnRef.current.push(handleStartShuffle);
 
   for (let x = -1; x <= 1; x++) {
     for (let y = -1; y <= 1; y++) {
