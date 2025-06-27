@@ -5,6 +5,7 @@ import Cube from "../components/Cube";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { SplitText } from "gsap/all";
+import { useNavigate } from "react-router-dom";
 
 const useMoveGenerator = () => {
   const moveStackRef = useRef([]);
@@ -39,6 +40,7 @@ const PuzzlePage = () => {
   const { moveStackRef, generateMoves } = useMoveGenerator();
   const [started, setStarted] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const navigate = useNavigate();
 
   useGSAP(() => {
     gsap.registerPlugin(SplitText);
