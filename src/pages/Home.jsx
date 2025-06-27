@@ -12,7 +12,7 @@ const Home = () => {
     anim = gsap.timeline();
     anim.to(e.currentTarget, {
       scale: 1.1,
-      boxShadow: "0 8px 20px rgba(177, 59, 255, 0.8)",
+      boxShadow: "0 10px 20px rgba(177, 59, 255, 0.8)",
       duration: 0.3,
       ease: "power1.inOut",
     });
