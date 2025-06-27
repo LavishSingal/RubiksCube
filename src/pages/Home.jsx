@@ -38,7 +38,7 @@ const Home = () => {
   };
 
   const handleClick = () => {
-    navigate("/practice");
+    navigate("/puzzle");
   };
 
   // gsap.to();

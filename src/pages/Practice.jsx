@@ -121,7 +121,7 @@ const PuzzlePage = () => {
       setStarted(true);
       setCompleted(false);
     } else {
-      window.location.reload();
+      navigate(0);
     }
   };
 
